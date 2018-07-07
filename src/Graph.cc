@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2017 Computer Science Department, FAST-NU, Lahore.
+ * Copyright (c) 2018 Computer Science Department, FAST-NU, Lahore.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -109,8 +109,40 @@ vector<GraphEdge*> Graph::filterNodeEdges(string nodefile){
 	return selectedEdges;
 }
 
+GraphNode* Graph::findBase(string path){
+	GraphNode* base = NULL;
 
-string Graph::convertPathToXml(string path){
+	Path p(path);
+	vector<string> ids = p.getIds().getElements();
+
+	map<string,GraphNode*> pathNodes;
+
+	for(int i=0; i < ids.size(); i++){
+		GraphEdge* edge = edges[ids[i]];
+		if (edge != NULL){
+			GraphNode* pNode = edge->getFromNode();
+			pathNodes[pNode->getId()] = pNode;
+
+			pNode = edge->getToNode();
+			pathNodes[pNode->getId()] = pNode;
+		}
+	}
+	// determine base node
+	int randomNumber = Util::random(pathNodes.size());
+	int count = 0;
+
+	for(map<string,GraphNode*>::iterator iter = pathNodes.begin(); iter != pathNodes.end(); iter++){
+		if(count == randomNumber){
+			base = iter->second;
+			break;
+		}
+		count++;
+	}
+
+	return base;
+}
+
+string Graph::convertPathToXml(string path,string base){
 	Path p(path);
 	vector<string> ids = p.getIds().getElements();
 
@@ -130,9 +162,15 @@ string Graph::convertPathToXml(string path){
 	stringstream xmlContent;
 	xmlContent << "<graph>\n<nodes>\n" ;
 	for(map<string,GraphNode*>::iterator iter = pathNodes.begin(); iter != pathNodes.end(); iter++){
-		xmlContent << "<node id='" << iter->first << "' x='" << iter->second->getX() << "' y='" << iter->second->getY() << "' />\n";
+		if (iter->second->getId().compare(base) == 0){
+			xmlContent << "<node id='" << iter->first << "' x='" << iter->second->getX() << "' y='" << iter->second->getY() << "' type='base' />\n";
+		}
+		else {
+			xmlContent << "<node id='" << iter->first << "' x='" << iter->second->getX() << "' y='" << iter->second->getY() << "' type='node' />\n";
+		}
 	}
 	xmlContent << "</nodes>\n<edges>\n" ;
+
 	for(int i=0; i < ids.size(); i++){
 		GraphEdge* edge = edges[ids[i]];
 		if (edge != NULL){

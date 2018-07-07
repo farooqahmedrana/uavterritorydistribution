@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2017 Computer Science Department, FAST-NU, Lahore.
+ * Copyright (c) 2018 Computer Science Department, FAST-NU, Lahore.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,6 +22,7 @@
 #include <sstream>
 #include "PartitionStrategy.h"
 #include "Graph.h"
+#include "Util.h"
 
 PartitionStrategy::PartitionStrategy(Graph* graph,PathStrategy* pathStrategy) {
 	this->graph = graph;
@@ -32,11 +33,13 @@ PartitionStrategy::PartitionStrategy(Graph* graph,PathStrategy* pathStrategy) {
 
 void PartitionStrategy::filterFeasiblePaths(Allocation& allocation, vector<Path*>& allPaths , vector<Path*> & consideredPaths)
 {
-    for(int i = 0;i < allPaths.size();i++){
+
+	for(int i = 0;i < allPaths.size();i++){
         if(allocation.checkDisjointPathProperty(allPaths[i])){
             consideredPaths.push_back(allPaths[i]);
         }
     }
+
 }
 
 vector<GraphEdge*> PartitionStrategy::findUnvisitedEdges(Allocation& allocation) {
@@ -74,6 +77,7 @@ vector<GraphNode*> PartitionStrategy::findNodesOfUnvisitedEdges(Allocation& allo
 
 
 vector<Path*>* PartitionStrategy::getAllPathsOfNode(GraphNode* node,float maxDistance){
+
 	if(nodePaths.count(node->getId()) == 0)
 	{
 		vector<Path*>* allPathsOfThisNode = new vector<Path*>();
@@ -88,15 +92,16 @@ vector<Path*>* PartitionStrategy::getAllPathsOfNode(GraphNode* node,float maxDis
 }
 
 
-void PartitionStrategy::postprocess(Allocation& allocation,float maxDistance){
+void PartitionStrategy::postprocess(Allocation& allocatedPaths,float maxDistance, Allocation& output){
 
-	vector<GraphNode*> unvisitedEdgesNodes = findNodesOfUnvisitedEdges(allocation);
-	Set visitedEdges = allocation.getVisitedEdges();
+	vector<GraphNode*> unvisitedEdgesNodes = findNodesOfUnvisitedEdges(allocatedPaths);
+	Set visitedEdges = allocatedPaths.getVisitedEdges();
 
 	for(int i=0; i < unvisitedEdgesNodes.size(); i++){
 		string pathString = bfsPath(unvisitedEdgesNodes[i],maxDistance,visitedEdges);
 		if (!pathString.empty()){
-			cout << pathString << endl;
+			Path* p = new Path(pathString);
+			output.addPath(p);
 		}
 	}
 
@@ -137,16 +142,19 @@ void PartitionStrategy::execute(float maxDistance){
 
 	Allocation currentSolution;
 	Allocation solution;
+	Allocation postprocessOutput;
 
-	cout << "*** finding disjoint paths ***" << endl;
+//	cout << "*** finding disjoint paths ***" << endl;
 
 	solve(nodes->begin()->second,maxDistance,solution,currentSolution);
 
-	cout << "*** printing solution ***" << endl;
+//	cout << "*** printing solution ***" << endl;
 	currentSolution.print();
 
 	cout << "*** post processing ***" << endl;
-	postprocess(currentSolution,maxDistance);
+	postprocess(currentSolution,maxDistance,postprocessOutput);
+	postprocessOutput.print();
+
 
 }
 
@@ -203,6 +211,7 @@ void OptimalStrategy::findOptimalDisjointPathsSolution(GraphNode* node,float max
 }
 
 void GreedyStrategy::solve(GraphNode* node,float maxDistance,Allocation temp,Allocation& final){
+	Util::randomseed();
 	findGreedyDisjointPathsSolution(node,maxDistance,temp,final);
 }
 
@@ -235,7 +244,6 @@ void GreedyStrategy::findGreedyDisjointPathsSolution(GraphNode* node,float maxDi
 			temp.addPath(consideredPath);
 		}
 
-
 		// reclaim memory
 		for(int i=0; i < allPathsOfThisNode->size(); i++){
 			if ( consideredPath == NULL || (consideredPath != NULL && !allPathsOfThisNode->at(i)->equal(consideredPath)) ){
@@ -254,3 +262,46 @@ void GreedyStrategy::findGreedyDisjointPathsSolution(GraphNode* node,float maxDi
 	final = temp;
 }
 
+void MonteCarloStrategy::execute(float maxDistance){
+
+	Allocation finalMergedResults;
+	Allocation finalDistribution;
+	Allocation finalPostProcessingOutput;
+
+	for (int i=0; i < iterations; i++){
+
+		Allocation mergedResults;
+		Allocation currentDistribution;
+		Allocation tempDistribution;
+		Allocation postprocessOutput;
+
+		// find a random root node
+		Util::randomseed();
+		int randomNumber = Util::random(nodes->size());
+		map<string,GraphNode*>::iterator iterator = nodes->begin();
+		GraphNode* root = iterator->second;
+		for(int i=1; i != randomNumber && i < nodes->size(); i++,iterator++){
+			root = iterator->second;
+		}
+
+		// find a solution
+		solve(root,maxDistance,tempDistribution,currentDistribution);
+		postprocess(currentDistribution,maxDistance,postprocessOutput);
+
+		// compare and update if better
+		mergedResults = currentDistribution;
+		mergedResults.merge(postprocessOutput);
+		if (mergedResults.compare(finalMergedResults)){
+			finalMergedResults = mergedResults;
+			finalDistribution = currentDistribution;
+			finalPostProcessingOutput = postprocessOutput;
+		}
+
+		// cleanup essential
+		nodePaths.clear();
+	}
+
+	finalDistribution.print();
+	cout << "*** post process ***" << endl;
+	finalPostProcessingOutput.print();
+}

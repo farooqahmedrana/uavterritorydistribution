@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2017 Computer Science Department, FAST-NU, Lahore.
+ * Copyright (c) 2018 Computer Science Department, FAST-NU, Lahore.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -90,6 +90,16 @@ void Allocation::operator =(Allocation& sol){
 
 int Allocation::size(){
 	return allocation.size();
+}
+
+void Allocation::merge(Allocation& alloc){
+	for(int i=0; i < alloc.allocation.size(); i++){
+		allocation.push_back(alloc.allocation[i]);
+	}
+
+	Path* newUnionPath = unionpath->unionset(alloc.allocation);
+	delete unionpath;
+	unionpath = newUnionPath;
 }
 
 Allocation::~Allocation() {

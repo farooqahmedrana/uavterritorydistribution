@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2017 Computer Science Department, FAST-NU, Lahore.
+ * Copyright (c) 2018 Computer Science Department, FAST-NU, Lahore.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -61,12 +61,12 @@ void GraphXmlParser::parse(){
 		while (node != NULL){
 
 			if (xmlStrcmp(node->name, (const xmlChar *) "nodes") == 0) {
-				cout << "parse nodes" << endl;
+//				cout << "parse nodes" << endl;
 				parseNodes(node);
 			}
 
 			if (xmlStrcmp(node->name, (const xmlChar *) "edges") == 0) {
-				cout << "parse edges" << endl;
+//				cout << "parse edges" << endl;
 				parseEdges(node);
 			}
 
@@ -76,7 +76,7 @@ void GraphXmlParser::parse(){
 		xmlFreeDoc(doc);
 	}
 
-	cout << "parsed" << endl;
+//	cout << "parsed" << endl;
 }
 
 void GraphXmlParser::parseNodes(xmlNodePtr root){

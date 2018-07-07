@@ -1,6 +1,6 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
- * Copyright (c) 2017 Computer Science Department, FAST-NU, Lahore.
+ * Copyright (c) 2018 Computer Science Department, FAST-NU, Lahore.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,7 +54,8 @@ public:
 	GraphEdge* getEdge(string id);
 
 	vector<GraphEdge*> filterNodeEdges(string nodefile);
-	string convertPathToXml(string path);
+	string convertPathToXml(string path,string base);
+	GraphNode* findBase(string path);
 
 	virtual ~Graph();
 };
