@@ -20,9 +20,13 @@
 #include <iostream>
 #include <queue>
 #include <sstream>
+#include <cmath>
+#include <cstdlib>
+#include <algorithm>
 #include "PartitionStrategy.h"
 #include "Graph.h"
 #include "Util.h"
+
 
 PartitionStrategy::PartitionStrategy(Graph* graph,PathStrategy* pathStrategy) {
 	this->graph = graph;
@@ -304,4 +308,331 @@ void MonteCarloStrategy::execute(float maxDistance){
 	finalDistribution.print();
 	cout << "*** post process ***" << endl;
 	finalPostProcessingOutput.print();
+}
+
+
+void SimulatedAnnealingStrategy::initsol(GraphNode* node,float maxDistance,Allocation& sol){
+
+	Set visitedNodesId;
+	for (map<string,GraphNode*>::iterator nodeIterator = nodes->begin(); nodeIterator != nodes->end(); nodeIterator++){
+		visitedNodesId.add(nodeIterator->first);
+	}
+
+	do {
+
+		vector<Path*>* allPathsOfThisNode = getAllPathsOfNode(node,maxDistance);
+		vector<Path*> consideredPaths;  // that satisfy the bound - for saving space
+
+		filterFeasiblePaths(sol, *allPathsOfThisNode, consideredPaths);
+
+		Path* consideredPath = NULL;
+
+		// select a random path
+		if(!consideredPaths.empty()){
+			int randomNumber = Util::random(consideredPaths.size());
+			consideredPath = consideredPaths[randomNumber];
+			sol.addPath(consideredPath);
+		}
+
+/*		// reclaim memory
+		for(int i=0; i < allPathsOfThisNode->size(); i++){
+			if ( consideredPath == NULL || (consideredPath != NULL && !allPathsOfThisNode->at(i)->equal(consideredPath)) ){
+				delete (*allPathsOfThisNode)[i];
+				(*allPathsOfThisNode)[i] = NULL;
+			}
+		}
+*/
+		visitedNodesId.remove(node->getId());
+		if (visitedNodesId.size() > 0){
+			node = (*nodes)[visitedNodesId.random()];
+		}
+
+	} while(visitedNodesId.size() > 0);
+}
+
+Allocation SimulatedAnnealingStrategy::neighbor(Allocation& current,float maxDistance){
+	Allocation next = current;
+	next.removeRandomPath();
+
+	vector<GraphNode*> unvisitedNodes = findNodesOfUnvisitedEdges(next);
+
+	Set unvisitedNodesId;
+	for(int i=0; i < unvisitedNodes.size(); i++){
+		unvisitedNodesId.add(unvisitedNodes[i]->getId());
+	}
+
+	GraphNode* node = (*nodes)[unvisitedNodesId.random()];
+
+	do {
+
+		vector<Path*>* allPathsOfThisNode = getAllPathsOfNode(node,maxDistance);
+		vector<Path*> consideredPaths;  // that satisfy the bound - for saving space
+
+		filterFeasiblePaths(next, *allPathsOfThisNode, consideredPaths);
+
+
+		Path* consideredPath = NULL;
+
+		// select a random path
+		if(!consideredPaths.empty()){
+			int randomNumber = Util::random(consideredPaths.size());
+			consideredPath = consideredPaths[randomNumber];
+			next.addPath(consideredPath);
+		}
+/*
+		// reclaim memory
+		for(int i=0; i < allPathsOfThisNode->size(); i++){
+			if ( consideredPath == NULL || (consideredPath != NULL && !allPathsOfThisNode->at(i)->equal(consideredPath)) ){
+				delete (*allPathsOfThisNode)[i];
+				(*allPathsOfThisNode)[i] = NULL;
+			}
+		}
+*/
+		unvisitedNodesId.remove(node->getId());
+
+		if (unvisitedNodesId.size() > 0){
+			node = (*nodes)[unvisitedNodesId.random()];
+		}
+
+	} while(unvisitedNodesId.size() > 0);
+
+	return next;
+}
+
+void SimulatedAnnealingStrategy::solve(GraphNode* node,float maxDistance,Allocation temp,Allocation& final){
+	Util::randomseed();
+
+	Allocation current;
+	initsol(node,maxDistance,current);
+
+	double T = 100;
+	int t = 1;
+	while(true){
+		T *= (1 - (0.001*t) );
+		if (T == 0) break;
+
+		Allocation next = neighbor(current,maxDistance);
+
+		float delta = (current.getVisitedEdges().size() - next.getVisitedEdges().size())*0.5 + (current.size() - next.size())*0.5 ;
+
+		if (delta < 0){
+			current = next;
+		}
+		else{
+			float probability = exp(- delta/(t*T));
+			if(rand() < probability){
+				current = next;
+			}
+		}
+
+		t++;
+	}
+
+	final = current;
+}
+
+
+void GeneticAlgorithmStrategy::initsol(GraphNode* node,float maxDistance,Allocation& sol){
+
+	Set visitedNodesId;
+	for (map<string,GraphNode*>::iterator nodeIterator = nodes->begin(); nodeIterator != nodes->end(); nodeIterator++){
+		visitedNodesId.add(nodeIterator->first);
+	}
+
+	do {
+
+		vector<Path*>* allPathsOfThisNode = getAllPathsOfNode(node,maxDistance);
+		vector<Path*> consideredPaths;  // that satisfy the bound - for saving space
+
+		filterFeasiblePaths(sol, *allPathsOfThisNode, consideredPaths);
+
+		Path* consideredPath = NULL;
+
+		// select a random path
+		if(!consideredPaths.empty()){
+			int randomNumber = Util::random(consideredPaths.size());
+			consideredPath = consideredPaths[randomNumber];
+			sol.addPath(consideredPath);
+		}
+
+		visitedNodesId.remove(node->getId());
+		if (visitedNodesId.size() > 0){
+			node = (*nodes)[visitedNodesId.random()];
+		}
+
+	} while(visitedNodesId.size() > 0);
+}
+
+void GeneticAlgorithmStrategy::initpopulation(GraphNode* node,float maxDistance,Allocation** population){
+
+	for(int i=0; i < SIZE; i++){
+		population[i] = new Allocation();
+		initsol(node,maxDistance,*population[i]);
+	}
+
+}
+
+void GeneticAlgorithmStrategy::solve(GraphNode* node,float maxDistance,Allocation temp,Allocation& final){
+	Util::randomseed();
+
+	Allocation** population = new Allocation*[SIZE];
+	initpopulation(node,maxDistance,population);
+
+	vector<Allocation*> populationVector;
+	for (int i = 0; i < SIZE; i++){
+		populationVector.push_back(population[i]);
+	}
+
+	vector<Allocation*> generationVector;
+
+	for(int i=0; i < ITERATIONS; i++){
+
+		while(populationVector.size() > 0){
+			int a = Util::random(populationVector.size());
+			Allocation* parentA = populationVector[a];
+			populationVector.erase(populationVector.begin() + a);
+
+			int b = Util::random(populationVector.size());
+			Allocation* parentB = populationVector[a];
+			populationVector.erase(populationVector.begin() + b);
+
+			Allocation* childA = new Allocation();
+			Allocation* childB = new Allocation();
+
+			crossover(*parentA,*parentB,*childA,*childB);
+
+			if(rand() < MUTATION_PROBABILITY){
+				mutate(*childA,maxDistance);
+			}
+
+			if(rand() < MUTATION_PROBABILITY){
+				mutate(*childB,maxDistance);
+			}
+
+			generationVector.push_back(childA);
+			generationVector.push_back(childB);
+		}
+
+		populationVector = selection(populationVector,generationVector);
+
+		Allocation* current = populationVector[0];
+		for (int i=1; i < SIZE; i++){
+			Allocation* next = populationVector[i];
+
+			float delta = (current->getVisitedEdges().size() - next->getVisitedEdges().size())*0.5 + (current->size() - next->size())*0.5 ;
+
+			if (delta < 0){
+				current = next;
+			}
+		}
+
+		if(current->compare(final)){
+			final = *current;
+		}
+
+		generationVector.clear();
+	}
+}
+
+void GeneticAlgorithmStrategy::crossover(Allocation& parentA,Allocation& parentB,Allocation& childA,Allocation& childB){
+	for(int i=0; i < parentA.size() ; i++){
+		if (i % 2 == 0){
+			childA.addPath(parentA.getPath(i));
+
+		}
+		else{
+			childB.addPath(parentA.getPath(i));
+		}
+	}
+
+	for(int i=0; i < parentB.size() ; i++){
+		if (i % 2 == 0){
+			if (childA.checkDisjointPathProperty(parentB.getPath(i))){
+				childA.addPath(parentB.getPath(i));
+			}
+
+		}
+		else{
+			if (childB.checkDisjointPathProperty(parentB.getPath(i))){
+				childB.addPath(parentB.getPath(i));
+			}
+		}
+	}
+}
+
+void GeneticAlgorithmStrategy::mutate(Allocation& chromosome,float maxDistance){
+
+	chromosome.removeRandomPath();
+
+	vector<GraphNode*> unvisitedNodes = findNodesOfUnvisitedEdges(chromosome);
+
+	Set unvisitedNodesId;
+	for(int i=0; i < unvisitedNodes.size(); i++){
+		unvisitedNodesId.add(unvisitedNodes[i]->getId());
+	}
+
+	GraphNode* node = (*nodes)[unvisitedNodesId.random()];
+
+	do {
+
+		vector<Path*>* allPathsOfThisNode = getAllPathsOfNode(node,maxDistance);
+		vector<Path*> consideredPaths;  // that satisfy the bound - for saving space
+
+		filterFeasiblePaths(chromosome, *allPathsOfThisNode, consideredPaths);
+
+
+		Path* consideredPath = NULL;
+
+		// select a random path
+		if(!consideredPaths.empty()){
+			int randomNumber = Util::random(consideredPaths.size());
+			consideredPath = consideredPaths[randomNumber];
+			chromosome.addPath(consideredPath);
+		}
+
+		unvisitedNodesId.remove(node->getId());
+
+		if (unvisitedNodesId.size() > 0){
+			node = (*nodes)[unvisitedNodesId.random()];
+		}
+
+	} while(unvisitedNodesId.size() > 0);
+
+}
+
+vector<Allocation*> GeneticAlgorithmStrategy::selection(vector<Allocation*> initGen, vector<Allocation*> newGen ){
+	vector<Allocation*> result;
+
+	sort(initGen.begin(),initGen.end(),compare);
+	sort(newGen.begin(),newGen.end(),compare);
+
+	int initNum = ELITISM_PERCENTAGE / 100 * SIZE;
+	int count = 0;
+	for(int i=initGen.size()-1; i >= 0; i--, count++ ){
+		if(count < initNum){
+			result.push_back(initGen[i]);
+		}
+		else {
+			delete initGen[i];
+		}
+	}
+
+	for(int i=newGen.size()-1; i >= 0; i--, count++ ){
+		if (count < SIZE){
+			result.push_back(newGen[i]);
+		}
+		else {
+			delete newGen[i];
+		}
+	}
+
+	return result;
+}
+
+bool GeneticAlgorithmStrategy::compare(Allocation* a,Allocation* b){
+	float delta = (a->getVisitedEdges().size() - b->getVisitedEdges().size())*0.5 + (a->size() - b->size())*0.5;
+	if(delta < 0){
+		return true;
+	}
+	return false;
 }

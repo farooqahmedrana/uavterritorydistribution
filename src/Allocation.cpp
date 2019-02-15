@@ -18,13 +18,14 @@
  * Author: Farooq Ahmed <farooq.ahmad@nu.edu.pk>
  */
 #include "Allocation.h"
+#include "Util.h"
 #include <iostream>
 
 Allocation::Allocation() {
 	unionpath = new Path();
 }
 
-Allocation::Allocation(Allocation& sol) {
+Allocation::Allocation(const Allocation& sol) {
 
 	for(int i=0; i < sol.allocation.size(); i++){
 		allocation.push_back(sol.allocation[i]);
@@ -42,6 +43,10 @@ void Allocation::addPath(Path* p){
 	unionpath = newUnionPath;
 }
 
+Path* Allocation::getPath(int index){
+	return allocation[index];
+}
+
 void Allocation::removeLastPath(){
 	Path* p = allocation[allocation.size()-1];
 	allocation.pop_back();
@@ -49,6 +54,16 @@ void Allocation::removeLastPath(){
 	delete unionpath;
 	unionpath = newUnionPath;
 }
+
+void Allocation::removeRandomPath(){
+	int random = Util::random(allocation.size());
+	Path* p = allocation[random];
+	allocation.erase(allocation.begin() + random);
+	Path* newUnionPath = unionpath->difference(p);
+	delete unionpath;
+	unionpath = newUnionPath;
+}
+
 
 bool Allocation::checkDisjointPathProperty(Path* p){
 	return unionpath->disjoint(p);

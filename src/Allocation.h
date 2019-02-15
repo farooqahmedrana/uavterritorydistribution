@@ -37,9 +37,11 @@ private:
 
 public:
 	Allocation();
-	Allocation(Allocation& sol);
+	Allocation(const Allocation& sol);
 	void addPath(Path*);
+	Path* getPath(int index);
 	void removeLastPath();
+	void removeRandomPath();
 	bool checkDisjointPathProperty(Path*);
 	bool compare(Allocation&);
 	Set getVisitedEdges();

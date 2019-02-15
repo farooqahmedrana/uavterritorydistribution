@@ -179,6 +179,12 @@ PartitionStrategy* getPartitionStrategy(char* name,Graph* graph,PathStrategy* pa
 		}
 		else return new MonteCarloStrategy(graph,pathStrategy,10);
 	}
+	else if (strcmp(name,"simulatedannealing") == 0){
+		return new SimulatedAnnealingStrategy(graph,pathStrategy);
+	}
+	else if (strcmp(name,"geneticalgorithm") == 0){
+		return new GeneticAlgorithmStrategy(graph,pathStrategy);
+	}
 
 	return NULL;
 }

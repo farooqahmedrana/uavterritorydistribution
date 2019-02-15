@@ -85,5 +85,41 @@ public:
 	MonteCarloStrategy(Graph* graph,PathStrategy* strategy,int iter) : GreedyStrategy(graph,strategy) { iterations = iter; }
 };
 
+class SimulatedAnnealingStrategy : public PartitionStrategy {
+private:
+	void initsol(GraphNode* node,float maxDistance,Allocation& sol);
+	Allocation neighbor(Allocation& current,float maxDistance);
+
+protected:
+	virtual void solve(GraphNode* node,float maxDistance,Allocation temp,Allocation& final);
+public:
+	SimulatedAnnealingStrategy(Graph* graph,PathStrategy* strategy) : PartitionStrategy(graph,strategy) { }
+
+};
+
+class GeneticAlgorithmStrategy : public PartitionStrategy {
+private:
+	void initsol(GraphNode* node,float maxDistance,Allocation& sol);
+	void initpopulation(GraphNode* node,float maxDistance,Allocation** population);
+	void crossover(Allocation& parentA,Allocation& parentB,Allocation& childA,Allocation& childB);
+	void mutate(Allocation& chromosome,float maxDistance);
+	vector<Allocation*> selection(vector<Allocation*> initGen, vector<Allocation*> newGen );
+
+	static bool compare(Allocation* a,Allocation* b);
+
+	static const int SIZE = 100;
+	static const int ITERATIONS = 10;
+	static const int ELITISM_PERCENTAGE = 10;
+	static const float MUTATION_PROBABILITY = 0.3;
+
+protected:
+	virtual void solve(GraphNode* node,float maxDistance,Allocation temp,Allocation& final);
+public:
+	GeneticAlgorithmStrategy(Graph* graph,PathStrategy* strategy) : PartitionStrategy(graph,strategy) { }
+
+
+};
+
+
 #endif /* PARTITIONSTRATEGY_H_ */
 
